@@ -1,0 +1,77 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pause | Think Before You Buy</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="app.js" defer></script>
+</head>
+<body>
+
+    <!-- Navigation -->
+    <header>
+        <h1>Pause.</h1>
+        <nav>
+            <a href="#dashboard">Dashboard</a>
+            <a href="#add-item">Add Item</a>
+        </nav>
+    </header>
+
+    <main id="dashboard">
+
+        <!-- Welcome Section -->
+        <section>
+            <h2>Think before you buy.</h2>
+            <p>Give yourself time to decide what really matters.</p>
+        </section>
+
+        <!-- Financial Overview -->
+        <section class="stats">
+            <div class="stat-card">
+                <h3>Potential Spending Avoided</h3>
+                <p id="total-saved">$0.00</p>
+            </div>
+
+            <div class="stat-card">
+                <h3>Monthly Shopping Budget</h3>
+                <p id="monthly-budget">$500.00</p>
+            </div>
+        </section>
+
+        <!-- Add Item Form -->
+        <section id="add-item">
+            <h2>Pre-order an Item</h2>
+            <p>No payment required. Just give yourself time.</p>
+
+            <form id="item-form">
+                <input type="url" id="item-link"
+                    placeholder="Paste product link">
+
+                <input type="text" id="item-name"
+                    placeholder="Item name" required>
+
+                <input type="number" id="item-price"
+                    placeholder="Price ($)" min="0" step="0.01" required>
+
+                <textarea id="item-reason"
+                    placeholder="Why do you want this?"
+                    required></textarea>
+
+                <button type="submit">Pre-order Now</button>
+            </form>
+        </section>
+
+        <!-- Waiting List -->
+        <section id="waiting-list">
+            <h2>Your Waiting List</h2>
+            <div id="items-container">
+                <p>No items yet. Add something you're thinking of buying!</p>
+            </div>
+        </section>
+
+    </main>
+
+</body>
+</html>
