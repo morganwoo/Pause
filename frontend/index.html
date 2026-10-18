@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#0b1020">
+  <title>PAUSE! | Beat the Buy Button</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;500;600;700&family=Press+Start+2P&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+  <script src="app.js" defer></script>
+</head>
+<body>
+  <div class="site-shell">
+    <header class="topbar">
+      <a href="#dashboard" class="brand" aria-label="Pause home">
+        <span class="brand-symbol">Ⅱ</span>
+        <span>PAUSE<span class="brand-dot">!</span></span>
+      </a>
+      <span class="topbar-caption"><span class="live-dot"></span> THE ANTI-IMPULSE ARCADE</span>
+      <div class="topbar-actions">
+        <button type="button" class="button button-ghost account-trigger" id="account-trigger">♟ LOG IN / SIGN UP</button>
+        <button type="button" class="button button-primary topbar-add" data-open-add>
+          <span aria-hidden="true">＋</span> NEW QUEST
+        </button>
+      </div>
+    </header>
+
+    <div class="dashboard-layout" id="dashboard">
+      <main class="main-column">
+        <section class="overview" aria-labelledby="overview-title">
+          <div class="overview-heading">
+            <div>
+              <div class="eyebrow"><span class="pixel-star">✦</span> PLAYER PROGRESS / LIVE SCOREBOARD</div>
+              <h1 id="overview-title">YOUR QUEST STATS <span>↗</span></h1>
+              <p>Watch your decisions add up, one cooldown at a time.</p>
+            </div>
+            <span class="overview-pill">● LEVEL UP YOUR WILLPOWER</span>
+          </div>
+          <div class="overview-grid">
+            <article class="overview-card decisions-panel">
+              <div class="overview-card-heading">✦ DECISION RATIO</div>
+              <div class="decision-display">
+                <div class="ratio-ring" id="ratio-ring"><strong id="decline-rate">—</strong><small>SKIPPED</small></div>
+                <div class="decision-legend">
+                  <div><i class="legend-dot lime"></i><span>DECLINED</span><strong id="declined-count">0</strong></div>
+                  <div><i class="legend-dot purple"></i><span>APPROVED</span><strong id="approved-count">0</strong></div>
+                  <p id="ratio-caption">Complete a quest to start your score.</p>
+                </div>
+              </div>
+            </article>
+            <article class="overview-card projection-panel">
+              <div class="overview-card-heading">⌁ PROJECTED DESIRE CURVE</div>
+              <div class="projection-legend"><span><i class="legend-dot lime"></i>CHECK-INS</span><span><i class="legend-line"></i>PROJECTION</span></div>
+              <div id="overview-desire-chart" class="overview-chart" role="img" aria-label="Average recorded desire ratings and estimated future trend"></div>
+              <p id="projection-caption" class="projection-caption">Add daily check-ins to unlock your forecast.</p>
+            </article>
+          </div>
+          <div class="overview-minis">
+            <div><span>ACTIVE COOLDOWNS</span><strong id="overview-active">0</strong></div>
+            <div><span>AVG. LAST DESIRE</span><strong id="overview-desire">—</strong></div>
+            <div><span>QUESTS RESOLVED</span><strong id="overview-resolved">0</strong></div>
+          </div>
+        </section>
+
+        <section class="quests" id="waiting-list" aria-labelledby="quests-heading">
+          <div class="section-heading">
+            <div>
+              <div class="eyebrow mini-eyebrow">YOUR INVENTORY</div>
+              <h2 id="quests-heading">COOLDOWN QUESTS <span id="active-count" class="count-pill">0</span></h2>
+            </div>
+            <div class="grid-hint">↓ SCROLL DOWN TO EXPLORE</div>
+          </div>
+          <div class="items-scroller" id="items-container" aria-label="Paused purchases"></div>
+        </section>
+
+        <section class="how-it-works" aria-label="How Pause works">
+          <div><span>01</span> <strong>SPOT IT</strong> <small>Find something you want</small></div>
+          <div><span>02</span> <strong>PAUSE IT</strong> <small>Start a 14+ day cooldown</small></div>
+          <div><span>03</span> <strong>BEAT IT</strong> <small>Decide with a clearer head</small></div>
+        </section>
+        <p class="privacy-note" id="privacy-note">✧ Guest mode: your progress is saved in this browser. Log in to save it to your local Java server. No purchases are placed.</p>
+      </main>
+
+      <aside class="stats-sidebar" aria-label="Your money scoreboard">
+        <div class="scoreboard">
+          <div class="scoreboard-top">
+            <span class="eyebrow mini-eyebrow">PLAYER STATS</span>
+            <span class="scoreboard-badge" id="player-level">LVL 01</span>
+          </div>
+          <div class="stat-icon" aria-hidden="true">✦</div>
+          <div class="stat-group">
+            <div class="stat-heading">POTENTIAL SPENDING AVOIDED</div>
+            <div id="total-saved" class="stat-value saved-value" aria-live="polite">$0.00</div>
+            <p>Value of purchases you chose to skip.</p>
+          </div>
+          <div class="scoreboard-rule"></div>
+          <div class="stat-group">
+            <div class="budget-heading">
+              <div class="stat-heading">MONTHLY SHOPPING BUDGET</div>
+              <button type="button" class="text-button" id="edit-budget">EDIT ✎</button>
+            </div>
+            <div id="monthly-budget" class="stat-value">$500.00</div>
+            <p>Used to size up each temptation.</p>
+          </div>
+          <div class="side-tip"><span aria-hidden="true">🛡️</span><div><strong>Every pause is progress.</strong><p>You're in control of the checkout button.</p></div></div>
+        </div>
+      </aside>
+    </div>
+  </div>
+
+  <div class="mobile-scoreboard" aria-label="Your money scoreboard">
+    <div><small>AVOIDED</small><strong id="mobile-total-saved">$0.00</strong></div>
+    <div class="mobile-score-divider"></div>
+    <div><small>MONTHLY BUDGET</small><strong id="mobile-monthly-budget">$500.00</strong></div>
+    <button type="button" id="mobile-edit-budget" aria-label="Edit monthly budget">✎</button>
+  </div>
+
+  <dialog id="auth-dialog" class="modal auth-modal" aria-labelledby="auth-title">
+    <div class="modal-heading">
+      <div><span class="eyebrow mini-eyebrow">SAVE YOUR PROGRESS</span><h2 id="auth-title">PLAYER ACCOUNT</h2></div>
+      <button type="button" class="modal-close" data-close-dialog aria-label="Close">✕</button>
+    </div>
+    <div id="signed-out-panel">
+      <div class="auth-tabs" aria-label="Account action">
+        <button type="button" id="auth-login-tab" class="auth-tab is-selected">LOG IN</button>
+        <button type="button" id="auth-register-tab" class="auth-tab">SIGN UP</button>
+      </div>
+      <form id="auth-form">
+        <label for="auth-email">EMAIL</label>
+        <input id="auth-email" type="email" autocomplete="email" required maxlength="254" placeholder="you@example.com">
+        <label for="auth-password">PASSWORD (8+ CHARACTERS)</label>
+        <input id="auth-password" type="password" minlength="8" maxlength="128" autocomplete="current-password" required placeholder="Your password">
+        <div id="auth-confirm-group" hidden>
+          <label for="auth-confirm">CONFIRM PASSWORD</label>
+          <input id="auth-confirm" type="password" minlength="8" maxlength="128" autocomplete="new-password">
+        </div>
+        <p id="auth-error" class="auth-error" role="alert" hidden></p>
+        <p class="field-note">Real accounts require the included Java server. Passwords are never stored in the browser. Guest items remain separate from account items.</p>
+        <button type="submit" id="auth-submit" class="button button-primary auth-submit">LOG IN</button>
+      </form>
+    </div>
+    <div id="signed-in-panel" hidden>
+      <p class="modal-intro">Logged in as <strong id="account-email"></strong></p>
+      <p class="field-note">Your dashboard syncs with this Java server, separate from guest mode.</p>
+      <button type="button" id="logout-button" class="button button-ghost">LOG OUT</button>
+    </div>
+  </dialog>
+
+  <dialog id="add-item-dialog" class="modal">
+    <div class="modal-heading">
+      <div><span class="eyebrow mini-eyebrow">START A NEW COOLDOWN</span><h2>NEW QUEST <span>✦</span></h2></div>
+      <button type="button" class="modal-close" data-close-dialog aria-label="Close">✕</button>
+    </div>
+    <p class="modal-intro">Your “pre-order” is just a promise to wait. No real purchase is made.</p>
+    <form id="item-form">
+      <label for="item-name">ITEM NAME <span>*</span></label>
+      <input type="text" id="item-name" name="item-name" placeholder="e.g. New headphones" maxlength="100" required>
+
+      <div class="form-split">
+        <div>
+          <label for="item-price">PRICE ($) <span>*</span></label>
+          <input type="number" id="item-price" name="item-price" min="0.01" step="0.01" placeholder="199.99" required>
+        </div>
+        <div>
+          <label for="waiting-days">COOLDOWN (DAYS)</label>
+          <input type="number" id="waiting-days" name="waiting-days" min="14" max="365" value="14" required>
+        </div>
+      </div>
+
+      <label for="item-reason">WHY DO YOU WANT IT? <span>*</span></label>
+      <textarea id="item-reason" name="item-reason" rows="3" maxlength="350" placeholder="Be real with yourself..." required></textarea>
+
+<div class="initial-desire-field">
+  <label for="initial-desire">HOW MUCH DO YOU WANT IT RIGHT NOW? <span>*</span></label>
+  <div class="desire-slider-row">
+    <input type="range" id="initial-desire" name="initial-desire" min="1" max="10" step="1" value="8" required>
+    <output id="initial-desire-value" for="initial-desire">8/10</output>
+  </div>
+  <div class="desire-scale"><span>JUST CURIOUS</span><span>NEED IT NOW</span></div>
+</div>
+
+      <label for="item-link">PRODUCT LINK <span class="optional">(OPTIONAL)</span></label>
+      <input type="url" id="item-link" name="item-link" placeholder="https://store.example.com/item">
+
+      <label for="item-image">IMAGE URL <span class="optional">(OPTIONAL)</span></label>
+      <input type="url" id="item-image" name="item-image" placeholder="https://example.com/product-image.jpg">
+      <p class="field-note">Product links and pictures are entered manually for now. Auto-fill can be added with the Java backend.</p>
+
+      <div class="modal-actions">
+        <button type="button" class="button button-ghost" data-close-dialog>CANCEL</button>
+        <button type="submit" class="button button-primary">Ⅱ START COOLDOWN</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="budget-dialog" class="modal budget-modal">
+    <div class="modal-heading">
+      <div><span class="eyebrow mini-eyebrow">PLAYER SETTINGS</span><h2>SET BUDGET</h2></div>
+      <button type="button" class="modal-close" data-close-dialog aria-label="Close">✕</button>
+    </div>
+    <form id="budget-form">
+      <label for="budget-input">MONTHLY SHOPPING BUDGET ($)</label>
+      <input id="budget-input" type="number" min="0.01" step="0.01" required>
+      <div class="modal-actions">
+        <button type="button" class="button button-ghost" data-close-dialog>CANCEL</button>
+        <button type="submit" class="button button-primary">SAVE BUDGET</button>
+      </div>
+    </form>
+  </dialog>
+
+<dialog id="desire-dialog" class="modal desire-modal" aria-labelledby="desire-modal-title">
+  <div class="modal-heading">
+    <div>
+      <span class="eyebrow mini-eyebrow">YOUR IMPULSE, VISUALIZED</span>
+      <h2 id="desire-modal-title">DESIRE TRACKER <span>↗</span></h2>
+    </div>
+    <button type="button" class="modal-close" data-close-dialog aria-label="Close">✕</button>
+  </div>
+  <div class="desire-item-header">
+    <div>
+      <div class="desire-tracking-label">TRACKING QUEST</div>
+      <h3 id="desire-item-name"></h3>
+    </div>
+    <div class="desire-current-score"><strong id="desire-current-value">—</strong><small>LAST RATING</small></div>
+  </div>
+  <div class="desire-chart-panel">
+    <div class="desire-chart-topline"><span>WANT LEVEL</span><span>COOLDOWN TIMELINE</span></div>
+    <div id="desire-chart" class="desire-chart" role="img" aria-label="Desire ratings over time"></div>
+    <p id="desire-chart-insight" class="desire-chart-insight"></p>
+  </div>
+  <form id="desire-form">
+    <label for="desire-rating">HOW MUCH DO YOU WANT IT TODAY?</label>
+    <div class="desire-slider-row">
+      <input type="range" id="desire-rating" min="1" max="10" step="1" value="8" required>
+      <output id="desire-rating-value" for="desire-rating">8/10</output>
+    </div>
+    <div class="desire-scale"><span>NOT REALLY</span><span>CAN'T STOP THINKING ABOUT IT</span></div>
+    <p class="field-note">One check-in per day. Saving again today updates today's rating. No made-up ratings are added.</p>
+    <div class="modal-actions">
+      <button type="button" class="button button-ghost" data-close-dialog>CLOSE</button>
+      <button type="submit" class="button button-primary">✦ SAVE TODAY'S RATING</button>
+    </div>
+  </form>
+</dialog>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+</body>
+</html>
