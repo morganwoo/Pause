@@ -59,7 +59,7 @@ function readItems() {
     }));
 }
 
-let items = readItems();
+let items = [];
 let totalSaved = Number(localStorage.getItem('pauseTotalSaved')) || 0;
 let questsCleared = Number(localStorage.getItem('pauseQuestsCleared')) || 0;
 let monthlyBudget = Number(localStorage.getItem('pauseMonthlyBudget')) || 500;
@@ -604,8 +604,22 @@ items = demos.map((demo, index) => {
 
 
 
-// Live countdown updates without re-rendering item cards or interrupting scrolling.
-storeItems(); // Adds IDs and default cooldowns to saved items from the old version.
+async function loadItemsFromBackend() {
+  try {
+    const response = await fetch('/items');
+
+    if (!response.ok) {
+      throw new Error('Failed to load items');
+    }
+
+    const data = await response.json();
+    console.log('Backend items:', data);
+  } catch (error) {
+    console.error('Backend connection failed:', error);
+  }
+}
+
+loadItemsFromBackend();
 renderItems();
 setInterval(updateTimers, 1000);
 
