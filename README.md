@@ -31,16 +31,3 @@ Online shopping has eliminated all friction with one-click checkouts and digital
 * **User Profile & Budgeting:** Dedicated profile dashboard allowing users to set monthly shopping budgets, update account credentials, and track personal savings milestones.
 
 ---
-
-## 🚀 Getting Started
-
-Follow these steps to run the project locally on your machine.
-
-### Prerequisites
-* A modern web browser (Google Chrome, Microsoft Edge, Firefox, or Safari)
-* [Optional] [VS Code](https://code.visualstudio.com/) with the **Live Server** extension
-
-### 1. Clone the Repository
-```bash
-git clone https://github.com/YOUR_USERNAME/BCShacks2026.git
-cd BCShacks2026
