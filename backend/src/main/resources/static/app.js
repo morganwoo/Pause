@@ -96,13 +96,22 @@ function loadState(state) {
 // Desire check-ins remain browser-local until a server endpoint is added.
 function persistState() {
   for (const item of items) {
-    if (item.desireHistory) localStorage.setItem(`pauseDesire:${item.id}`, JSON.stringify(item.desireHistory));
+    if (item.desireHistory) localStorage.setItem(`pauseDesire:${account?.id || 'guest'}:${item.id}`, JSON.stringify(item.desireHistory));
   }
 }
 
 let toastTimeout;
 
-function storeItems() { persistState(); }
+function storeItems() {
+  persistState();
+  if (!account) {
+    localStorage.setItem('pauseItems', JSON.stringify(items));
+    localStorage.setItem('pauseTotalSaved', String(totalSaved));
+    localStorage.setItem('pauseQuestsCleared', String(questsCleared));
+    localStorage.setItem('pauseMonthlyBudget', String(monthlyBudget));
+    localStorage.setItem('pauseDecisions', JSON.stringify(decisions));
+  }
+}
 function safeUrl(value) {
   if (!value) return null;
   try {
@@ -480,6 +489,13 @@ async function declineItem(id) {
   const item = items.find(entry => entry.id === id);
   if (!item || !confirm(`Skip buying “${item.name}” and count ${money.format(item.price)} as potential spending avoided?`)) return;
   try {
+    if (!account) {
+      items = items.filter(entry => entry.id !== id);
+      totalSaved += Number(item.price);
+      questsCleared++;
+      decisions.push({type:'declined',price:item.price,itemName:item.name,at:Date.now()});
+      storeItems(); renderItems(); showToast('✦ QUEST CLEARED!'); return;
+    }
     await apiJson(`/items/${id}`, {method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({status:'declined'})});
     await refreshBackend();
     showToast(`✦ QUEST CLEARED! ${money.format(item.price)} in spending avoided.`);
@@ -491,6 +507,11 @@ async function approveItem(id) {
   if (!item || Date.now() < item.createdAt + item.waitingDays * MS_PER_DAY) return;
   if (!confirm(`Mark “${item.name}” as approved after the cooldown? No payment is made.`)) return;
   try {
+    if (!account) {
+      items = items.filter(entry => entry.id !== id);
+      decisions.push({type:'approved',price:item.price,itemName:item.name,at:Date.now()});
+      storeItems(); renderItems(); showToast('✓ PURCHASE APPROVED'); return;
+    }
     await apiJson(`/items/${id}`, {method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({status:'purchased'})});
     await refreshBackend();
     showToast('✓ PURCHASE APPROVED. You made an intentional choice.');
@@ -510,7 +531,7 @@ function openAdd() {
 document.addEventListener('click', event => {
   if (event.target.closest('[data-open-add]')) openAdd();
   if (event.target.closest('[data-close-dialog]')) event.target.closest('dialog').close();
-  if (event.target.closest('#load-demo')) showToast('Demo items disabled: connected to live Supabase data.');
+  if (event.target.closest('#load-demo')) { if (!account) loadDemo(); else showToast('Demo available in guest mode only.'); }
 });
 
 for (const dialog of [addDialog, budgetDialog, desireDialog, authDialog]) {
@@ -537,9 +558,14 @@ form.addEventListener('submit', async event => {
     return;
   }
   try {
+    if (!account) {
+      const created = {id:newId(),name,price,reason,link,imageUrl,waitingDays,createdAt:Date.now(),desireHistory:[{date:localDateKey(),rating:initialDesire}]};
+      items.unshift(created); storeItems(); renderItems(); addDialog.close();
+      showToast('⏳ COOLDOWN STARTED!'); return;
+    }
     const created = await apiJson('/items', {method:'POST',headers:{'Content-Type':'application/json'},
       body:JSON.stringify({name,price,reason,productUrl:link,photoUrl:imageUrl,waitingDays})});
-    localStorage.setItem(`pauseDesire:${created.id}`, JSON.stringify([{date:localDateKey(),rating:initialDesire}]));
+    localStorage.setItem(`pauseDesire:${account?.id || 'guest'}:${created.id}`, JSON.stringify([{date:localDateKey(),rating:initialDesire}]));
     await refreshBackend();
     addDialog.close();
     document.getElementById('waiting-list').scrollIntoView({block:'start',behavior:'smooth'});
@@ -561,6 +587,10 @@ document.getElementById('budget-form').addEventListener('submit', async event =>
     return;
   }
   try {
+    if (!account) {
+      monthlyBudget = newBudget; storeItems(); renderItems(); budgetDialog.close();
+      showToast('✓ Monthly budget updated.'); return;
+    }
     await apiJson('/budget', {method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({monthlyBudget:newBudget})});
     await refreshBackend();
     budgetDialog.close();
@@ -594,13 +624,15 @@ items = demos.map((demo, index) => {
 
 
 async function apiJson(path, options = {}) {
-  const response = await fetch(path, options);
+  if (!account || !session?.access_token) throw new Error('Sign in to sync your account');
+  const headers = {...(options.headers || {}), Authorization: `Bearer ${session.access_token}`};
+  const response = await fetch(path, {...options, headers});
   if (!response.ok) throw new Error(`${path} returned HTTP ${response.status}`);
   return response.json();
 }
 function mapBackendItem(item) {
   let desireHistory = [];
-  try { desireHistory = normalizedDesireHistory(JSON.parse(localStorage.getItem(`pauseDesire:${item.id}`) || '[]')); } catch {}
+  try { desireHistory = normalizedDesireHistory(JSON.parse(localStorage.getItem(`pauseDesire:${account?.id || 'guest'}:${item.id}`) || '[]')); } catch {}
   return {id:String(item.id), name:item.name, price:Number(item.price), reason:item.reason || '',
     link:item.productUrl || '', imageUrl:item.photoUrl || '',
     createdAt:Date.parse(item.createdAt),
@@ -621,11 +653,100 @@ async function refreshBackend() {
     ...purchased.map(item => ({type:'approved',price:Number(item.price),itemName:item.name,at:Date.parse(item.createdAt)}))];
   renderItems();
 }
-refreshBackend().catch(error => showToast(`⚠ Database load failed: ${error.message}`));
+
 
 setInterval(updateTimers, 1000);
 
 
-// Accounts are disabled until Spring Boot has real per-user authentication.
+// Supabase email/password authentication; server independently validates tokens on every request.
 const authTrigger = document.getElementById('account-trigger');
-if (authTrigger) { authTrigger.hidden = true; authTrigger.style.display = 'none'; }
+let authConfig = null;
+let session = null;
+const SESSION_KEY = 'pauseSupabaseSession';
+function authUi() {
+  document.getElementById('signed-out-panel').hidden = !!account;
+  document.getElementById('signed-in-panel').hidden = !account;
+  document.getElementById('account-email').textContent = account?.email || '';
+  authTrigger.textContent = account ? '♟ ' + account.email : '♟ LOG IN / SIGN UP';
+  document.getElementById('privacy-note').textContent = account
+    ? '✧ Signed in: your quests and budget are private to your account.'
+    : '✧ Guest mode: progress is saved only in this browser. Sign in to sync a separate account.';
+}
+function selectAuthMode(mode) {
+  authMode = mode;
+  document.getElementById('auth-login-tab').classList.toggle('is-selected',mode==='login');
+  document.getElementById('auth-register-tab').classList.toggle('is-selected',mode==='register');
+  document.getElementById('auth-confirm-group').hidden = mode !== 'register';
+  document.getElementById('auth-submit').textContent = mode==='login' ? 'LOG IN' : 'SIGN UP';
+  document.getElementById('auth-error').hidden = true;
+}
+function showAuthError(message) {
+  const el=document.getElementById('auth-error'); el.textContent=message; el.hidden=false;
+}
+async function supabaseAuth(path, payload, token) {
+  if (!authConfig?.url || !authConfig?.anonKey) throw new Error('Auth not configured on Railway');
+  const response=await fetch(`${authConfig.url.replace(/\/$/,'')}/auth/v1/${path}`, {
+    method:payload ? 'POST' : 'GET',
+    headers:{apikey:authConfig.anonKey,'Content-Type':'application/json',...(token?{Authorization:`Bearer ${token}`}:{})},
+    ...(payload?{body:JSON.stringify(payload)}:{})
+  });
+  const data=await response.json();
+  if (!response.ok) throw new Error(data.msg || data.error_description || data.message || data.error || 'Authentication failed');
+  return data;
+}
+async function useSession(nextSession) {
+  if (!nextSession?.access_token || !nextSession?.user?.id) throw new Error('Please confirm your email, then log in.');
+  // Keep current guest state until authenticated data has been successfully fetched.
+  const oldAccount=account, oldSession=session;
+  account={id:nextSession.user.id,email:nextSession.user.email}; session=nextSession;
+  try { await refreshBackend(); }
+  catch (err) { account=oldAccount; session=oldSession; throw err; }
+  localStorage.setItem(SESSION_KEY,JSON.stringify(session));
+  authUi();
+}
+function useGuest() {
+  account=null; session=null; localStorage.removeItem(SESSION_KEY);
+  loadState(guestState()); authUi();
+}
+authTrigger.addEventListener('click',()=>{authUi();authDialog.showModal();});
+document.getElementById('continue-guest').addEventListener('click',()=>authDialog.close());
+document.getElementById('auth-login-tab').addEventListener('click',()=>selectAuthMode('login'));
+document.getElementById('auth-register-tab').addEventListener('click',()=>selectAuthMode('register'));
+document.getElementById('auth-form').addEventListener('submit',async event=>{
+  event.preventDefault();
+  const submit=document.getElementById('auth-submit'); submit.disabled=true;
+  document.getElementById('auth-error').hidden=true;
+  try {
+    const email=document.getElementById('auth-email').value.trim();
+    const password=document.getElementById('auth-password').value;
+    if(authMode==='register' && password!==document.getElementById('auth-confirm').value)
+      throw new Error('Passwords do not match');
+    const data=await supabaseAuth(authMode==='register'?'signup':'token?grant_type=password', {email,password});
+    if (!data.access_token) {
+      showToast('✉ Check your email to confirm your account, then log in.');
+      selectAuthMode('login'); return;
+    }
+    await useSession(data);
+    authDialog.close(); document.getElementById('auth-form').reset();
+    showToast('✓ SIGNED IN! Your private quests are loaded.');
+  } catch(err) { showAuthError(err.message); }
+  finally { submit.disabled=false; }
+});
+document.getElementById('logout-button').addEventListener('click',()=>{
+  useGuest(); authDialog.close(); showToast('SIGNED OUT. Back in guest mode.');
+});
+async function bootAuth() {
+  useGuest();
+  try {
+    const response=await fetch('/auth-config'); authConfig=await response.json();
+    const saved=JSON.parse(localStorage.getItem(SESSION_KEY)||'null');
+    if(saved?.refresh_token) {
+      const refreshed=await supabaseAuth('token?grant_type=refresh_token',{refresh_token:saved.refresh_token});
+      await useSession(refreshed);
+    }
+  } catch(err) {
+    useGuest();
+    if(localStorage.getItem(SESSION_KEY)) showToast('Session expired. Please log in again.');
+  }
+}
+bootAuth();

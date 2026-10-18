@@ -93,28 +93,25 @@ function loadState(state) {
   renderItems();
 }
 
+// Desire check-ins remain browser-local until a server endpoint is added.
 function persistState() {
+  for (const item of items) {
+    if (item.desireHistory) localStorage.setItem(`pauseDesire:${account?.id || 'guest'}:${item.id}`, JSON.stringify(item.desireHistory));
+  }
+}
+
+let toastTimeout;
+
+function storeItems() {
+  persistState();
   if (!account) {
     localStorage.setItem('pauseItems', JSON.stringify(items));
     localStorage.setItem('pauseTotalSaved', String(totalSaved));
     localStorage.setItem('pauseQuestsCleared', String(questsCleared));
     localStorage.setItem('pauseMonthlyBudget', String(monthlyBudget));
     localStorage.setItem('pauseDecisions', JSON.stringify(decisions));
-    return;
   }
-  const email = account.email;
-  const snapshot = JSON.stringify(currentState());
-  pendingSave = pendingSave.catch(() => {}).then(async () => {
-    if (!account || account.email !== email) return;
-    const response = await fetch('/api/state', { method: 'PUT', credentials: 'same-origin',
-      headers: {'Content-Type': 'application/json', 'X-Pause-Client': '1'}, body: snapshot });
-    if (!response.ok) { showToast('⚠ Could not sync your changes. Check server.'); throw new Error('Account sync failed'); }
-  });
 }
-
-let toastTimeout;
-
-function storeItems() { persistState(); }
 function safeUrl(value) {
   if (!value) return null;
   try {
@@ -488,28 +485,37 @@ function renderItems() {
   updateTimers();
 }
 
-function declineItem(id) {
+async function declineItem(id) {
   const item = items.find(entry => entry.id === id);
-  if (!item) return;
-  if (!confirm(`Skip buying “${item.name}” and count ${money.format(item.price)} as potential spending avoided?`)) return;
-  totalSaved += item.price;
-  questsCleared += 1;
-  decisions.push({ id: newId(), type:'declined', price:item.price, itemName:item.name, at:Date.now() });
-  items = items.filter(entry => entry.id !== id);
-  storeItems();
-  renderItems();
-  showToast(`✦ QUEST CLEARED! ${money.format(item.price)} in spending avoided.`);
+  if (!item || !confirm(`Skip buying “${item.name}” and count ${money.format(item.price)} as potential spending avoided?`)) return;
+  try {
+    if (!account) {
+      items = items.filter(entry => entry.id !== id);
+      totalSaved += Number(item.price);
+      questsCleared++;
+      decisions.push({type:'declined',price:item.price,itemName:item.name,at:Date.now()});
+      storeItems(); renderItems(); showToast('✦ QUEST CLEARED!'); return;
+    }
+    await apiJson(`/items/${id}`, {method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({status:'declined'})});
+    await refreshBackend();
+    showToast(`✦ QUEST CLEARED! ${money.format(item.price)} in spending avoided.`);
+  } catch (error) { showToast(`⚠ ${error.message}`); }
 }
 
-function approveItem(id) {
+async function approveItem(id) {
   const item = items.find(entry => entry.id === id);
   if (!item || Date.now() < item.createdAt + item.waitingDays * MS_PER_DAY) return;
-  if (!confirm(`Mark “${item.name}” as approved after the cooldown? This records a decision only. No payment is made.`)) return;
-  decisions.push({ id: newId(), type:'approved', price:item.price, itemName:item.name, at:Date.now() });
-  items = items.filter(entry => entry.id !== id);
-  storeItems();
-  renderItems();
-  showToast('✓ PURCHASE APPROVED. You made an intentional choice.');
+  if (!confirm(`Mark “${item.name}” as approved after the cooldown? No payment is made.`)) return;
+  try {
+    if (!account) {
+      items = items.filter(entry => entry.id !== id);
+      decisions.push({type:'approved',price:item.price,itemName:item.name,at:Date.now()});
+      storeItems(); renderItems(); showToast('✓ PURCHASE APPROVED'); return;
+    }
+    await apiJson(`/items/${id}`, {method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({status:'purchased'})});
+    await refreshBackend();
+    showToast('✓ PURCHASE APPROVED. You made an intentional choice.');
+  } catch (error) { showToast(`⚠ ${error.message}`); }
 }
 
 function openAdd() {
@@ -525,7 +531,7 @@ function openAdd() {
 document.addEventListener('click', event => {
   if (event.target.closest('[data-open-add]')) openAdd();
   if (event.target.closest('[data-close-dialog]')) event.target.closest('dialog').close();
-  if (event.target.closest('#load-demo')) loadDemo();
+  if (event.target.closest('#load-demo')) { if (!account) loadDemo(); else showToast('Demo available in guest mode only.'); }
 });
 
 for (const dialog of [addDialog, budgetDialog, desireDialog, authDialog]) {
@@ -534,7 +540,7 @@ for (const dialog of [addDialog, budgetDialog, desireDialog, authDialog]) {
   });
 }
 
-form.addEventListener('submit', event => {
+form.addEventListener('submit', async event => {
   event.preventDefault();
   const name = document.getElementById('item-name').value.trim();
   const price = Number(document.getElementById('item-price').value);
@@ -551,12 +557,20 @@ form.addEventListener('submit', event => {
     alert('Product and image URLs must start with http:// or https://');
     return;
   }
-  items.unshift({ id: newId(), name, price, reason, link, imageUrl, waitingDays, createdAt: Date.now(), desireHistory: [{date: localDateKey(), rating: initialDesire}] });
-  storeItems();
-  addDialog.close();
-  renderItems();
-  document.getElementById('waiting-list').scrollIntoView({block:'start',behavior:'smooth'});
-  showToast('⏳ COOLDOWN STARTED! You got this.');
+  try {
+    if (!account) {
+      const created = {id:newId(),name,price,reason,link,imageUrl,waitingDays,createdAt:Date.now(),desireHistory:[{date:localDateKey(),rating:initialDesire}]};
+      items.unshift(created); storeItems(); renderItems(); addDialog.close();
+      showToast('⏳ COOLDOWN STARTED!'); return;
+    }
+    const created = await apiJson('/items', {method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({name,price,reason,productUrl:link,photoUrl:imageUrl,waitingDays})});
+    localStorage.setItem(`pauseDesire:${account?.id || 'guest'}:${created.id}`, JSON.stringify([{date:localDateKey(),rating:initialDesire}]));
+    await refreshBackend();
+    addDialog.close();
+    document.getElementById('waiting-list').scrollIntoView({block:'start',behavior:'smooth'});
+    showToast('⏳ COOLDOWN STARTED! You got this.');
+  } catch (error) { showToast(`⚠ ${error.message}`); }
 });
 
 function openBudget() {
@@ -565,18 +579,23 @@ function openBudget() {
 }
 document.getElementById('edit-budget').addEventListener('click', openBudget);
 document.getElementById('mobile-edit-budget').addEventListener('click', openBudget);
-document.getElementById('budget-form').addEventListener('submit', event => {
+document.getElementById('budget-form').addEventListener('submit', async event => {
   event.preventDefault();
   const newBudget = Number(document.getElementById('budget-input').value);
   if (!Number.isFinite(newBudget) || newBudget <= 0) {
     alert('Enter a positive monthly budget.');
     return;
   }
-  monthlyBudget = newBudget;
-  persistState();
-  budgetDialog.close();
-  renderItems();
-  showToast('✓ Monthly budget updated.');
+  try {
+    if (!account) {
+      monthlyBudget = newBudget; storeItems(); renderItems(); budgetDialog.close();
+      showToast('✓ Monthly budget updated.'); return;
+    }
+    await apiJson('/budget', {method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({monthlyBudget:newBudget})});
+    await refreshBackend();
+    budgetDialog.close();
+    showToast('✓ Monthly budget updated.');
+  } catch (error) { showToast(`⚠ ${error.message}`); }
 });
 
 function loadDemo() {
@@ -604,111 +623,130 @@ items = demos.map((demo, index) => {
 
 
 
-async function loadItemsFromBackend() {
-  try {
-    const response = await fetch('/items');
-
-    if (!response.ok) {
-      throw new Error('Failed to load items');
-    }
-
-    const data = await response.json();
-    console.log('Backend items:', data);
-  } catch (error) {
-    console.error('Backend connection failed:', error);
-  }
+async function apiJson(path, options = {}) {
+  if (!account || !session?.access_token) throw new Error('Sign in to sync your account');
+  const headers = {...(options.headers || {}), Authorization: `Bearer ${session.access_token}`};
+  const response = await fetch(path, {...options, headers});
+  if (!response.ok) throw new Error(`${path} returned HTTP ${response.status}`);
+  return response.json();
+}
+function mapBackendItem(item) {
+  let desireHistory = [];
+  try { desireHistory = normalizedDesireHistory(JSON.parse(localStorage.getItem(`pauseDesire:${account?.id || 'guest'}:${item.id}`) || '[]')); } catch {}
+  return {id:String(item.id), name:item.name, price:Number(item.price), reason:item.reason || '',
+    link:item.productUrl || '', imageUrl:item.photoUrl || '',
+    createdAt:Date.parse(item.createdAt),
+    waitingDays:Math.max(14,Math.round((Date.parse(item.deadline)-Date.parse(item.createdAt))/MS_PER_DAY)),
+    desireHistory};
+}
+async function refreshBackend() {
+  const [allItems, budget, stats] = await Promise.all([
+    apiJson('/items'),apiJson('/budget'),apiJson('/stats')
+  ]);
+  items = allItems.filter(item => item.status === 'waiting').map(mapBackendItem);
+  monthlyBudget = Number(budget.monthlyBudget);
+  totalSaved = Number(stats.totalSaved);
+  const declined = allItems.filter(item => item.status === 'declined');
+  const purchased = allItems.filter(item => item.status === 'purchased');
+  questsCleared = declined.length;
+  decisions = [...declined.map(item => ({type:'declined',price:Number(item.price),itemName:item.name,at:Date.parse(item.createdAt)})),
+    ...purchased.map(item => ({type:'approved',price:Number(item.price),itemName:item.name,at:Date.parse(item.createdAt)}))];
+  renderItems();
 }
 
-loadItemsFromBackend();
-renderItems();
+
 setInterval(updateTimers, 1000);
 
 
-// Email/password accounts are verified by the Java server, not localStorage.
-// In guest mode, the browser retains the old localStorage-based functionality.
+// Supabase email/password authentication; server independently validates tokens on every request.
 const authTrigger = document.getElementById('account-trigger');
-const authError = document.getElementById('auth-error');
-function showAuthError(message) { authError.hidden = !message; authError.textContent = message || ''; }
-function setAuthMode(mode) {
-  authMode = mode;
-  document.getElementById('auth-login-tab').classList.toggle('is-selected', mode === 'login');
-  document.getElementById('auth-register-tab').classList.toggle('is-selected', mode === 'register');
-  document.getElementById('auth-confirm-group').hidden = mode !== 'register';
-  document.getElementById('auth-confirm').required = mode === 'register';
-  document.getElementById('auth-password').autocomplete = mode === 'register' ? 'new-password' : 'current-password';
-  document.getElementById('auth-submit').textContent = mode === 'register' ? 'CREATE ACCOUNT' : 'LOG IN';
-  showAuthError('');
-}
-function refreshAccountUi() {
-  authTrigger.textContent = account ? `♟ ${account.email}` : '♟ LOG IN / SIGN UP';
-  document.getElementById('signed-in-panel').hidden = !account;
+let authConfig = null;
+let session = null;
+const SESSION_KEY = 'pauseSupabaseSession';
+function authUi() {
   document.getElementById('signed-out-panel').hidden = !!account;
+  document.getElementById('signed-in-panel').hidden = !account;
   document.getElementById('account-email').textContent = account?.email || '';
+  authTrigger.textContent = account ? '♟ ' + account.email : '♟ LOG IN / SIGN UP';
   document.getElementById('privacy-note').textContent = account
-    ? '✧ Account mode: progress is saved on this local Java server. No purchases are placed.'
-    : '✧ Guest mode: progress stays in this browser. Account data is separate. No purchases are placed.';
+    ? '✧ Signed in: your quests and budget are private to your account.'
+    : '✧ Guest mode: progress is saved only in this browser. Sign in to sync a separate account.';
 }
-authTrigger.addEventListener('click', () => { refreshAccountUi(); setAuthMode('login'); authDialog.showModal(); });
-document.getElementById('auth-login-tab').addEventListener('click', () => setAuthMode('login'));
-document.getElementById('auth-register-tab').addEventListener('click', () => setAuthMode('register'));
-document.getElementById('auth-form').addEventListener('submit', async event => {
+function selectAuthMode(mode) {
+  authMode = mode;
+  document.getElementById('auth-login-tab').classList.toggle('is-selected',mode==='login');
+  document.getElementById('auth-register-tab').classList.toggle('is-selected',mode==='register');
+  document.getElementById('auth-confirm-group').hidden = mode !== 'register';
+  document.getElementById('auth-submit').textContent = mode==='login' ? 'LOG IN' : 'SIGN UP';
+  document.getElementById('auth-error').hidden = true;
+}
+function showAuthError(message) {
+  const el=document.getElementById('auth-error'); el.textContent=message; el.hidden=false;
+}
+async function supabaseAuth(path, payload, token) {
+  if (!authConfig?.url || !authConfig?.anonKey) throw new Error('Auth not configured on Railway');
+  const response=await fetch(`${authConfig.url.replace(/\/$/,'')}/auth/v1/${path}`, {
+    method:payload ? 'POST' : 'GET',
+    headers:{apikey:authConfig.anonKey,'Content-Type':'application/json',...(token?{Authorization:`Bearer ${token}`}:{})},
+    ...(payload?{body:JSON.stringify(payload)}:{})
+  });
+  const data=await response.json();
+  if (!response.ok) throw new Error(data.msg || data.error_description || data.message || data.error || 'Authentication failed');
+  return data;
+}
+async function useSession(nextSession) {
+  if (!nextSession?.access_token || !nextSession?.user?.id) throw new Error('Please confirm your email, then log in.');
+  // Keep current guest state until authenticated data has been successfully fetched.
+  const oldAccount=account, oldSession=session;
+  account={id:nextSession.user.id,email:nextSession.user.email}; session=nextSession;
+  try { await refreshBackend(); }
+  catch (err) { account=oldAccount; session=oldSession; throw err; }
+  localStorage.setItem(SESSION_KEY,JSON.stringify(session));
+  authUi();
+}
+function useGuest() {
+  account=null; session=null; localStorage.removeItem(SESSION_KEY);
+  loadState(guestState()); authUi();
+}
+authTrigger.addEventListener('click',()=>{authUi();authDialog.showModal();});
+document.getElementById('continue-guest').addEventListener('click',()=>authDialog.close());
+document.getElementById('auth-login-tab').addEventListener('click',()=>selectAuthMode('login'));
+document.getElementById('auth-register-tab').addEventListener('click',()=>selectAuthMode('register'));
+document.getElementById('auth-form').addEventListener('submit',async event=>{
   event.preventDefault();
-  showAuthError('');
-  const email = document.getElementById('auth-email').value.trim().toLowerCase();
-  const password = document.getElementById('auth-password').value;
-  if (authMode === 'register' && password !== document.getElementById('auth-confirm').value) {
-    showAuthError('Passwords do not match.'); return;
+  const submit=document.getElementById('auth-submit'); submit.disabled=true;
+  document.getElementById('auth-error').hidden=true;
+  try {
+    const email=document.getElementById('auth-email').value.trim();
+    const password=document.getElementById('auth-password').value;
+    if(authMode==='register' && password!==document.getElementById('auth-confirm').value)
+      throw new Error('Passwords do not match');
+    const data=await supabaseAuth(authMode==='register'?'signup':'token?grant_type=password', {email,password});
+    if (!data.access_token) {
+      showToast('✉ Check your email to confirm your account, then log in.');
+      selectAuthMode('login'); return;
+    }
+    await useSession(data);
+    authDialog.close(); document.getElementById('auth-form').reset();
+    showToast('✓ SIGNED IN! Your private quests are loaded.');
+  } catch(err) { showAuthError(err.message); }
+  finally { submit.disabled=false; }
+});
+document.getElementById('logout-button').addEventListener('click',()=>{
+  useGuest(); authDialog.close(); showToast('SIGNED OUT. Back in guest mode.');
+});
+async function bootAuth() {
+  useGuest();
+  try {
+    const response=await fetch('/auth-config'); authConfig=await response.json();
+    const saved=JSON.parse(localStorage.getItem(SESSION_KEY)||'null');
+    if(saved?.refresh_token) {
+      const refreshed=await supabaseAuth('token?grant_type=refresh_token',{refresh_token:saved.refresh_token});
+      await useSession(refreshed);
+    }
+  } catch(err) {
+    useGuest();
+    if(localStorage.getItem(SESSION_KEY)) showToast('Session expired. Please log in again.');
   }
-  const submit = document.getElementById('auth-submit');
-  submit.disabled = true;
-  try {
-    const response = await fetch(`/api/auth/${authMode === 'register' ? 'register' : 'login'}`, {
-      method:'POST',credentials:'same-origin',
-      headers:{'Content-Type':'application/x-www-form-urlencoded','X-Pause-Client':'1'},
-      body:new URLSearchParams({email,password})
-    });
-    const result = await response.json();
-    if (!response.ok) throw new Error(result.error || 'Could not log in.');
-    // Fetch before switching accounts, so we never mix up guest and account items.
-    const stateResponse = await fetch('/api/state', {credentials:'same-origin'});
-    if (!stateResponse.ok) throw new Error('Unable to load account data.');
-    const state = await stateResponse.json();
-    account = {email:result.email};
-    loadState(state);
-    refreshAccountUi();
-    authDialog.close();
-    document.getElementById('auth-form').reset();
-    showToast(`✦ WELCOME, ${result.email}! Your progress is synced.`);
-  } catch (error) {
-    showAuthError(error instanceof SyntaxError ? 'Account service unavailable. Run the included Java server, not python http.server.' : (error.message || 'Connection failed. Start the Java server for accounts.'));
-  } finally { submit.disabled = false; }
-});
-document.getElementById('logout-button').addEventListener('click', async () => {
-  const button = document.getElementById('logout-button'); button.disabled = true;
-  try {
-    await pendingSave; // Finish pending changes before ending the session.
-    const response = await fetch('/api/auth/logout', {method:'POST', credentials:'same-origin', headers:{'X-Pause-Client':'1'}});
-    if (!response.ok) throw new Error('Could not log out.');
-    account = null;
-    loadState(guestState());
-    refreshAccountUi(); authDialog.close();
-    showToast('SIGNED OUT. Back in guest mode.');
-  } catch (error) { showToast('⚠ Could not sign out. Check the server.'); }
-  finally { button.disabled = false; }
-});
-async function restoreSession() {
-  try {
-    const response = await fetch('/api/auth/me', {credentials:'same-origin'});
-    if (!response.ok) return;
-    const result = await response.json();
-    if (!result.email) return;
-    const stateResponse = await fetch('/api/state', {credentials:'same-origin'});
-    if (!stateResponse.ok) return;
-    const state = await stateResponse.json();
-    account = {email:result.email};
-    loadState(state);
-    refreshAccountUi();
-  } catch { /* Guest mode is always available without a backend. */ }
 }
-refreshAccountUi();
-restoreSession();
+bootAuth();

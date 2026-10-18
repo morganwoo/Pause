@@ -10,21 +10,22 @@ import java.util.List;
 @RequestMapping("/items")
 public class ItemController {
     private final ItemService service;
-    public ItemController(ItemService service) { this.service = service; }
+    private final UserAuth auth;
+    public ItemController(ItemService service, UserAuth auth) { this.service = service; this.auth = auth; }
     public record NewItem(String name, BigDecimal price, String reason,
                           String productUrl, String photoUrl, Integer waitingDays) {}
     public record Decision(String status) {}
 
     @GetMapping
-    public List<Item> getItems() { return service.getItems(); }
+    public List<Item> getItems(@RequestHeader(value="Authorization", required=false) String token) { return service.getItems(auth.requireUser(token)); }
 
     @PostMapping
-    public ResponseEntity<Item> addItem(@RequestBody NewItem request) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(service.addItem(request));
+    public ResponseEntity<Item> addItem(@RequestHeader(value="Authorization", required=false) String token, @RequestBody NewItem request) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(service.addItem(auth.requireUser(token), request));
     }
 
     @PatchMapping("/{id}")
-    public Item decide(@PathVariable long id, @RequestBody Decision request) {
-        return service.decide(id, request);
+    public Item decide(@RequestHeader(value="Authorization", required=false) String token, @PathVariable long id, @RequestBody Decision request) {
+        return service.decide(auth.requireUser(token), id, request);
     }
 }

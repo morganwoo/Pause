@@ -22,21 +22,21 @@ public class ItemRepository {
             rs.getString("reason"), rs.getString("product_url"), rs.getString("photo_url"),
             rs.getTimestamp("created_at").toInstant(), deadline, rs.getString("status"), days);
     }
-    public List<Item> findAll() {
-        return db.query("SELECT * FROM items ORDER BY created_at DESC, id DESC", this::map);
+    public List<Item> findAll(java.util.UUID userId) {
+        return db.query("SELECT * FROM items WHERE user_id = ? ORDER BY created_at DESC, id DESC", this::map, userId);
     }
-    public List<Item> findById(long id) {
-        return db.query("SELECT * FROM items WHERE id = ?", this::map, id);
+    public List<Item> findById(long id, java.util.UUID userId) {
+        return db.query("SELECT * FROM items WHERE id = ? AND user_id = ?", this::map, id, userId);
     }
-    public Item insert(String name, BigDecimal price, String reason, String productUrl,
+    public Item insert(java.util.UUID userId, String name, BigDecimal price, String reason, String productUrl,
                        String photoUrl, Instant deadline) {
         return db.queryForObject("""
-            INSERT INTO items (name, price, reason, product_url, photo_url, deadline)
-            VALUES (?, ?, ?, ?, ?, ?) RETURNING *
-            """, this::map, name, price, reason, productUrl, photoUrl, Timestamp.from(deadline));
+            INSERT INTO items (user_id, name, price, reason, product_url, photo_url, deadline)
+            VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING *
+            """, this::map, userId, name, price, reason, productUrl, photoUrl, Timestamp.from(deadline));
     }
-    public Item setStatus(long id, String status) {
-        return db.queryForObject("UPDATE items SET status = ? WHERE id = ? RETURNING *",
-            this::map, status, id);
+    public Item setStatus(long id, java.util.UUID userId, String status) {
+        return db.queryForObject("UPDATE items SET status = ? WHERE id = ? AND user_id = ? RETURNING *",
+            this::map, status, id, userId);
     }
 }

@@ -137,13 +137,14 @@
           <input id="auth-confirm" type="password" minlength="8" maxlength="128" autocomplete="new-password">
         </div>
         <p id="auth-error" class="auth-error" role="alert" hidden></p>
-        <p class="field-note">Real accounts require the included Java server. Passwords are never stored in the browser. Guest items remain separate from account items.</p>
+        <p class="field-note">Accounts use Supabase Auth. Guest items stay in this browser and are separate from signed-in quests.</p>
         <button type="submit" id="auth-submit" class="button button-primary auth-submit">LOG IN</button>
       </form>
+      <button type="button" id="continue-guest" class="button button-ghost" style="width:100%;margin-top:12px">CONTINUE AS GUEST</button>
     </div>
     <div id="signed-in-panel" hidden>
       <p class="modal-intro">Logged in as <strong id="account-email"></strong></p>
-      <p class="field-note">Your dashboard syncs with this Java server, separate from guest mode.</p>
+      <p class="field-note">Your quests sync privately with Supabase, separate from guest mode.</p>
       <button type="button" id="logout-button" class="button button-ghost">LOG OUT</button>
     </div>
   </dialog>
