@@ -1,6 +1,6 @@
 # Pause. • Think Before You Buy
 
-> A behavioral finance web application that acts as a "financial placebo," giving you the dopamine rush of online checkout while locking impulse purchases in a 14-day cooldown vault.
+> A behavioral finance web application that acts as a "financial placebo," giving you the dopamine rush of online checkout while locking impulse purchases in a 14-day cooldown vault.   
 
 ---
 
