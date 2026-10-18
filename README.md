@@ -14,7 +14,7 @@ Online shopping has eliminated all friction with one-click checkouts and digital
 
 ## 🛠️ Tech Stack
 
-* **Frontend:** Vanilla HTML5, Modern CSS3 (Dark-mode Glassmorphism), JavaScript (ES6+)
+* **Frontend:** Vanilla HTML5, Modern CSS3, JavaScript (ES6+)
 * **Data Visualization & UX:** Scalable Vector Graphics (SVG) Donut Charts
 * **Backend:** Java, Supabase, Railway, PostgreSQL, Spring Boot
 * **Collaboration & Tools:** Git, GitHub, and Generative AI (utilized for pair-programming, component scaffolding, and CSS styling)
