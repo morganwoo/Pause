@@ -1,6 +1,6 @@
 # Pause. • Think Before You Buy
 
-> A behavioral finance web application that acts as a "financial placebo," giving you the dopamine rush of online checkout while locking impulse purchases in a 7-day cooldown vault.
+> A behavioral finance web application that acts as a "financial placebo," giving you the dopamine rush of online checkout while locking impulse purchases in a 14-day cooldown vault.
 
 ---
 
@@ -8,16 +8,15 @@
 
 Online shopping has eliminated all friction with one-click checkouts and digital wallets, leading to impulsive spending driven by an immediate craving for dopamine. Traditional budgeting tools rely on guilt or restrictive site blockers, which consistently fail against human psychology. 
 
-**Pause.** is a psychological circuit breaker. Instead of preventing you from shopping, it lets you "pre-order" the item, rate your desire level, and experience an authentic order confirmation receipt—giving your brain the satisfaction of checkout without touching your bank account. Items enter an interactive 7-day cooldown vault, allowing emotional urgency to fade so you can make rational, regret-free financial decisions.
+**Pause.** is a psychological circuit breaker. Instead of preventing you from shopping, it lets you "pre-order" the item, rate your desire level, and experience an authentic order confirmation receipt—giving your brain the satisfaction of checkout without touching your bank account. Items enter an interactive 14-day cooldown vault, allowing emotional urgency to fade so you can make rational, regret-free financial decisions.
 
 ---
 
 ## 🛠️ Tech Stack
 
 * **Frontend:** Vanilla HTML5, Modern CSS3 (Dark-mode Glassmorphism), JavaScript (ES6+)
-* **Data Visualization & UX:** Scalable Vector Graphics (SVG) Donut Charts, [Canvas Confetti API](https://www.npmjs.com/package/canvas-confetti)
-* **Backend:** Java (RESTful API architecture, cooldown queue processing)
-* **State Management:** Browser `localStorage` for persistent sessions across page reloads
+* **Data Visualization & UX:** Scalable Vector Graphics (SVG) Donut Charts
+* **Backend:** Java, Supabase, Railway, PostgreSQL, Spring Boot
 * **Collaboration & Tools:** Git, GitHub, and Generative AI (utilized for pair-programming, component scaffolding, and CSS styling)
 
 ---
