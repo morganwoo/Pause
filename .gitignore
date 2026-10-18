@@ -7,3 +7,6 @@ backend/.vscode/
 .env
 .env.*
 .DS_Store
+server/data/
+*.class
+.DS_Store
